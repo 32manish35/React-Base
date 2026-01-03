@@ -5,10 +5,12 @@ import TaskCard from './TaskCard';
 const Column = ({ col, tasks, onAddTask, onDeleteTask }) => {
   return (
     <div style={styles.column}>
+
       <div style={{ ...styles.header, borderTop: `4px solid ${col.color}` }}>
         <h3 style={styles.title}>{col.title}</h3>
         <span style={styles.count}>{tasks.length}</span>
       </div>
+
 
       <Droppable droppableId={col.id}>
         {(provided, snapshot) => (
@@ -17,7 +19,8 @@ const Column = ({ col, tasks, onAddTask, onDeleteTask }) => {
             {...provided.droppableProps}
             style={{
               ...styles.taskList,
-              backgroundColor: snapshot.isDraggingOver ? 'rgba(0,0,0,0.05)' : 'transparent'
+              backgroundColor: snapshot.isDraggingOver ? 'rgba(0,0,0,0.05)' : 'transparent',
+              borderRadius: "4px"
             }}
           >
             {tasks.map((task, index) => (
@@ -34,10 +37,17 @@ const Column = ({ col, tasks, onAddTask, onDeleteTask }) => {
         )}
       </Droppable>
 
-      <button onClick={() => {
-        const title = prompt("Enter task title:");
-        if (title) onAddTask(title);
-      }} style={styles.addBtn}>
+
+      <button 
+        onClick={() => {
+          const title = prompt("Enter task title:");
+
+          if (title && title.trim() !== "") {
+            onAddTask(title);
+          }
+        }} 
+        style={styles.addBtn}
+      >
         + Add card
       </button>
     </div>
@@ -45,12 +55,53 @@ const Column = ({ col, tasks, onAddTask, onDeleteTask }) => {
 };
 
 const styles = {
-  column: { background: "#ebecf0", borderRadius: "8px", width: "280px", padding: "10px", display: "flex", flexDirection: "column" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" },
-  title: { margin: 0, fontSize: "14px" },
-  count: { fontSize: "12px", background: "#ccc", padding: "2px 6px", borderRadius: "10px" },
-  taskList: { minHeight: "100px" },
-  addBtn: { marginTop: "10px", background: "none", border: "none", cursor: "pointer", color: "#5e6c84", textAlign: "left" }
+  column: { 
+    background: "#ebecf0", 
+    borderRadius: "8px", 
+    width: "280px", 
+    padding: "10px", 
+    display: "flex", 
+    flexDirection: "column",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.12)" 
+  },
+  header: { 
+    display: "flex", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    marginBottom: "10px",
+    paddingTop: "5px"
+  },
+  title: { 
+    margin: 0, 
+    fontSize: "14px", 
+    fontWeight: "600",
+    color: "#172b4d" 
+  },
+  count: { 
+    fontSize: "12px", 
+    background: "#ccc", 
+    padding: "2px 6px", 
+    borderRadius: "10px",
+    color: "#444" 
+  },
+  taskList: { 
+    minHeight: "100px", 
+    transition: "background-color 0.2s ease",
+    padding: "5px 0"
+  },
+  addBtn: { 
+    marginTop: "10px", 
+    background: "none", 
+    border: "none", 
+    cursor: "pointer", 
+    color: "#5e6c84", 
+    textAlign: "left", 
+    padding: "8px",
+    borderRadius: "3px",
+    fontSize: "14px",
+    width: "100%",
+    transition: "background-color 0.2s"
+  }
 };
 
 export default Column;

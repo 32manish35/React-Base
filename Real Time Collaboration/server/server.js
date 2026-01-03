@@ -1,18 +1,31 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 require("dotenv").config();
 
-// 1. IMPORT THE MODEL
 const Task = require("./models/Task");
 
 const app = express();
+const server = http.createServer(app);
 
-// 2. ROBUST CORS & MIDDLEWARE
-// Explicitly handles preflight and origin issues for the Vite frontend
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://real-time-collaboration-app-chi.vercel.app",
+];
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  },
+});
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -21,7 +34,6 @@ app.use(
 
 app.use(express.json());
 
-// 3. DATABASE CONNECTION
 const uri = process.env.MONGO_URI;
 
 mongoose
@@ -31,9 +43,6 @@ mongoose
     console.error("❌ CONNECTION ERROR:", err.message);
   });
 
-// 4. API ROUTES
-
-// GET: Fetch all tasks
 app.get("/api/tasks", async (req, res) => {
   try {
     const tasks = await Task.find();
@@ -43,19 +52,18 @@ app.get("/api/tasks", async (req, res) => {
   }
 });
 
-// POST: Create a new task
 app.post("/api/tasks", async (req, res) => {
   try {
     const { title, status } = req.body;
     const newTask = new Task({ title, status });
     const savedTask = await newTask.save();
+    io.emit("taskAdded", savedTask);
     res.status(201).json(savedTask);
   } catch (err) {
     res.status(400).json({ error: "Failed to create task" });
   }
 });
 
-// PUT: Update task status (Used for Drag and Drop)
 app.put("/api/tasks/:id", async (req, res) => {
   try {
     const { status } = req.body;
@@ -64,39 +72,38 @@ app.put("/api/tasks/:id", async (req, res) => {
       { status },
       { new: true }
     );
+    io.emit("taskUpdated", updatedTask);
     res.json(updatedTask);
   } catch (err) {
     res.status(400).json({ error: "Failed to update task" });
   }
 });
 
-// DELETE: Remove a specific task
 app.delete("/api/tasks/:id", async (req, res) => {
   try {
     await Task.findByIdAndDelete(req.params.id);
+    io.emit("taskDeleted", req.params.id);
     res.json({ message: "Task deleted successfully" });
   } catch (err) {
     res.status(400).json({ error: "Failed to delete task" });
   }
 });
 
-// DELETE ALL: Clear the entire board
 app.delete("/api/tasks", async (req, res) => {
   try {
     await Task.deleteMany({});
+    io.emit("boardCleared");
     res.json({ message: "All tasks cleared successfully" });
   } catch (err) {
     res.status(500).json({ error: "Failed to clear board" });
   }
 });
 
-// Health check route
 app.get("/", (req, res) => {
-  res.send("Kanban API is alive and connected.");
+  res.send("Kanban API with Real-Time Sockets is alive.");
 });
 
-// 5. START SERVER (Port 5001 avoids Mac AirPlay conflicts)
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Real-time Server is running on port ${PORT}`);
 });

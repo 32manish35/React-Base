@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
+import { io } from 'socket.io-client';
 import Column from './Column';
 
 const COLUMNS = [
@@ -8,13 +9,13 @@ const COLUMNS = [
   { id: 'done', title: 'Done', color: '#61bd4f' }
 ];
 
-// Ensure this matches the backend PORT 5001
-const API_BASE_URL = 'http://localhost:5001/api/tasks';
+const RENDER_BACKEND_URL = 'https://real-time-collaboration-app-3ye5.onrender.com';
+const API_BASE_URL = `${RENDER_BACKEND_URL}/api/tasks`;
+const socket = io(RENDER_BACKEND_URL);
 
 const Board = () => {
   const [tasks, setTasks] = useState([]);
 
-  // Load tasks from MongoDB on startup
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -26,9 +27,36 @@ const Board = () => {
       }
     };
     fetchTasks();
+
+    socket.on("taskAdded", (newTask) => {
+      setTasks((prev) => {
+        if (prev.find(t => t._id === newTask._id)) return prev;
+        return [...prev, newTask];
+      });
+    });
+
+    socket.on("taskUpdated", (updatedTask) => {
+      setTasks((prev) => 
+        prev.map(t => t._id === updatedTask._id ? updatedTask : t)
+      );
+    });
+
+    socket.on("taskDeleted", (deletedId) => {
+      setTasks((prev) => prev.filter(t => t._id !== deletedId));
+    });
+
+    socket.on("boardCleared", () => {
+      setTasks([]);
+    });
+
+    return () => {
+      socket.off("taskAdded");
+      socket.off("taskUpdated");
+      socket.off("taskDeleted");
+      socket.off("boardCleared");
+    };
   }, []);
 
-  // ADD TASK (POST)
   const handleAddTask = async (columnId, title) => {
     try {
       const response = await fetch(API_BASE_URL, {
@@ -37,13 +65,16 @@ const Board = () => {
         body: JSON.stringify({ title, status: columnId })
       });
       const savedTask = await response.json();
-      setTasks(prev => [...prev, savedTask]);
+      
+      setTasks(prev => {
+        if (prev.find(t => t._id === savedTask._id)) return prev;
+        return [...prev, savedTask];
+      });
     } catch (err) {
       console.error("❌ Error adding task:", err);
     }
   };
 
-  // DRAG AND DROP (PUT)
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
@@ -51,8 +82,10 @@ const Board = () => {
 
     const updatedTasks = Array.from(tasks);
     const taskIndex = updatedTasks.findIndex(t => t._id === draggableId);
-    updatedTasks[taskIndex].status = destination.droppableId;
-    setTasks(updatedTasks);
+    if (taskIndex !== -1) {
+      updatedTasks[taskIndex].status = destination.droppableId;
+      setTasks(updatedTasks);
+    }
 
     try {
       await fetch(`${API_BASE_URL}/${draggableId}`, {
@@ -65,7 +98,6 @@ const Board = () => {
     }
   };
 
-  // DELETE SINGLE TASK (DELETE)
   const handleDelete = async (id) => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
@@ -77,9 +109,8 @@ const Board = () => {
     }
   };
 
-  // CLEAR ALL TASKS (DELETE ALL)
   const clearBoard = async () => {
-    if (window.confirm("Delete ALL tasks permanently from the database?")) {
+    if (window.confirm("Delete ALL tasks?")) {
       try {
         const response = await fetch(API_BASE_URL, { method: 'DELETE' });
         if (response.ok) {
@@ -95,7 +126,7 @@ const Board = () => {
     <DragDropContext onDragEnd={onDragEnd}>
       <div style={styles.wrapper}>
         <header style={styles.header}>
-          <h2 style={styles.logo}>Engineering Board</h2>
+          <h2 style={styles.logo}>Real-Time Board</h2>
           <button onClick={clearBoard} style={styles.clearBtn}>Clear All</button>
         </header>
         
